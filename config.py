@@ -1,3 +1,3 @@
 BOT_TOKEN =...
 "
-ADMIN_ID = 59940740
+ADMIN_ID = 
