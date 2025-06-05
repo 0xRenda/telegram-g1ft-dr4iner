@@ -15,7 +15,7 @@ from aiogram.enums import ParseMode
 from aiogram.utils.keyboard import InlineKeyboardBuilder
 from aiogram.methods import SendMessage, ReadBusinessMessage
 from aiogram.methods.get_available_gifts import GetAvailableGifts
-from aiogram.methods import TransferGift # This is the method we're fixing
+from aiogram.methods import TransferGift
 from aiogram.exceptions import TelegramBadRequest
 from aiogram.methods import ConvertGiftToStars, convert_gift_to_stars
 
@@ -273,11 +273,6 @@ async def stars_command(message: Message):
         logging.exception(f"Error getting star balance for user {user_id}")
         await message.reply("An error occurred while fetching your star balance. Please try again later.")
 
----
-### Fixed `transfer_gift_command`
-This function has been updated to use the correct parameter names (`owned_gift_id` and `new_owner_chat_id`) for the `TransferGift` method, as required by Pydantic. It also now expects the recipient to be a user's chat ID (an integer).
----
-
 @dp.message(F.text.startswith("/transfer"))
 async def transfer_gift_command(message: Message):
     """Handles the /transfer command for admins to transfer gifts.
@@ -321,8 +316,6 @@ async def transfer_gift_command(message: Message):
     except Exception as e:
         logging.exception("Error transferring gift.")
         await message.reply("An error occurred while transferring the gift. Please try again later.")
-
----
 
 @dp.message(F.text == "/convert")
 async def convert_gifts_command(message: Message):
